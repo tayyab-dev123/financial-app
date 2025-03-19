@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+env/
+venv/
+ENV/
+.env
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# ML Models - Keep small models, ignore large ones
+*.h5
+*.onnx
+# Uncomment below if you want to version control your models
+# !app/models/lstm_model.pth
+# !app/models/xgboost_model.pkl
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+*.sqlite3
+mongodb/
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build docs
+_build/
+site/
+
+# Temporary files
+tmp/
+temp/
+
+# FastAPI
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Node modules (if using any JS tools)
+node_modules/
