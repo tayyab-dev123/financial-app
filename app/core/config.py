@@ -53,6 +53,18 @@ class Settings(BaseSettings):
     # Huggingface
     HF_TOKEN: str = Field(default_factory=lambda: os.environ.get("HF_TOKEN", ""))
 
+    # Stock Data Provider Settings
+    STOCK_DATA_PROVIDER: str = Field(
+        default_factory=lambda: os.environ.get("STOCK_DATA_PROVIDER", "yahoo")
+    )
+    TWELVE_DATA_API_KEY: str = Field(
+        default_factory=lambda: os.environ.get("TWELVE_DATA_API_KEY", "")
+    )
+    ALPHA_VANTAGE_API_KEY: str = Field(
+        default_factory=lambda: os.environ.get("ALPHA_VANTAGE_API_KEY", "")
+    )
+    FMP_API_KEY: str = Field(default_factory=lambda: os.environ.get("FMP_API_KEY", ""))
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

@@ -6,6 +6,8 @@ from app.agents.data_agent import DataAgent
 from app.agents.analysis_agent import AnalysisAgent
 from app.agents.strategy_agent import StrategyAgent
 from app.agents.user_agent import UserAgent
+from app.services.stock_data_factory import StockDataFactory
+
 
 # Singleton instances
 _data_agent = None
@@ -18,7 +20,8 @@ def get_data_agent() -> DataAgent:
     """Get the data agent singleton."""
     global _data_agent
     if _data_agent is None:
-        _data_agent = DataAgent()
+        stock_service = StockDataFactory.create_service()
+        _data_agent = DataAgent(stock_service=stock_service)
     return _data_agent
 
 

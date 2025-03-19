@@ -4,28 +4,33 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from app.core.config import settings
-from app.services.alpaca_service import AlpacaService
 from app.models.stock import StockData, NewsItem
 
 
 class DataAgent:
     """Agent responsible for fetching stock data, news, and financial reports."""
 
-    def __init__(self):
-        self.alpaca_service = AlpacaService(
-            api_key=settings.ALPACA_API_KEY,
-            api_secret=settings.ALPACA_SECRET_KEY,
-            base_url=settings.ALPACA_BASE_URL,
-        )
+    def __init__(self, stock_service=None):
+        if stock_service:
+            self.stock_service = stock_service
+        else:
+            # Default to Alpaca if no service provided (backward compatibility)
+            from app.services.alpaca_service import AlpacaService
+
+            self.stock_service = AlpacaService(
+                api_key=settings.ALPACA_API_KEY,
+                api_secret=settings.ALPACA_SECRET_KEY,
+                base_url=settings.ALPACA_BASE_URL,
+            )
 
     def _format_date(self, date):
-        """Helper method to ensure dates are properly formatted for Alpaca API.
+        """Helper method to ensure dates are properly formatted for API.
 
         Args:
             date: Can be a datetime object or a string in YYYY-MM-DD format
 
         Returns:
-            str: A properly formatted date string for Alpaca API
+            str: A properly formatted date string for API
         """
         if isinstance(date, datetime):
             return date.strftime("%Y-%m-%d")
@@ -56,8 +61,7 @@ class DataAgent:
         if not end_date:
             # Set end_date to current time
             current_time = datetime.now()
-            # For free Alpaca accounts, add a buffer period to avoid SIP data restrictions
-            # Subtract 20 minutes from current time
+            # For free accounts, add a buffer period to avoid data restrictions
             end_date = current_time - timedelta(minutes=20)
 
         try:
@@ -74,8 +78,8 @@ class DataAgent:
 
             print(f"Fetching {symbol} data from {start_date_str} to {end_date_str}")
 
-            # Fetch data from Alpaca
-            stock_data = await self.alpaca_service.get_bars(
+            # Fetch data from stock service
+            stock_data = await self.stock_service.get_bars(
                 symbol=symbol,
                 timeframe=timeframe,
                 start=start_date_str,
@@ -111,16 +115,16 @@ class DataAgent:
 
     async def get_latest_price(self, symbol: str) -> float:
         """Get the latest price for a stock symbol."""
-        return await self.alpaca_service.get_latest_quote(symbol)
+        return await self.stock_service.get_latest_quote(symbol)
 
     async def get_company_news(self, symbol: str, limit: int = 5) -> List[NewsItem]:
         """Fetch recent news articles about a company."""
-        news_data = await self.alpaca_service.get_news(symbol, limit)
+        news_data = await self.stock_service.get_news(symbol, limit)
         return [NewsItem(**item) for item in news_data]
 
     async def get_market_news(self, limit: int = 5) -> List[NewsItem]:
         """Fetch general market news."""
-        news_data = await self.alpaca_service.get_news(None, limit)
+        news_data = await self.stock_service.get_news(None, limit)
         return [NewsItem(**item) for item in news_data]
 
     async def get_multiple_stocks(
@@ -134,4 +138,4 @@ class DataAgent:
 
     async def get_company_financials(self, symbol: str) -> Dict[str, Any]:
         """Fetch company financial statements if available."""
-        return await self.alpaca_service.get_company_financials(symbol)
+        return await self.stock_service.get_company_financials(symbol)

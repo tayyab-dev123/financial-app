@@ -2,10 +2,12 @@
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
+import pandas as pd
 
 from app.core.dependencies import get_data_agent
 from app.agents.data_agent import DataAgent
 from app.models.stock import StockData, NewsItem
+from app.utils.serialization import clean_response
 
 router = APIRouter(prefix="/stocks", tags=["Stocks"])
 
@@ -31,23 +33,35 @@ async def get_stock_price(
         # Convert pandas DataFrame to dict for JSON serialization
         if stock_data and hasattr(stock_data, "data") and not stock_data.data.empty:
             # Reset index to include timestamp in the records
-            df_dict = stock_data.data.reset_index().to_dict(orient="records")
+            df = stock_data.data.reset_index()
 
-            return {
+            # Convert DataFrame to records
+            records = df.to_dict(orient="records")
+
+            # Ensure dates are properly formatted
+            for record in records:
+                for key, value in record.items():
+                    if isinstance(value, (pd.Timestamp, datetime)):
+                        record[key] = value.isoformat()
+
+            response_data = {
                 "symbol": symbol,
                 "timeframe": timeframe,
-                "start_date": start_date,
-                "end_date": end_date,
-                "data": df_dict,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "data": records,
             }
         else:
-            return {
+            response_data = {
                 "symbol": symbol,
                 "timeframe": timeframe,
-                "start_date": start_date,
-                "end_date": end_date,
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
                 "data": [],
             }
+
+        # Clean the response data to ensure it's serializable
+        return clean_response(response_data)
 
     except Exception as e:
         raise HTTPException(
@@ -60,7 +74,13 @@ async def get_stock_quote(symbol: str, data_agent: DataAgent = Depends(get_data_
     """Get the latest quote for a stock."""
     try:
         price = await data_agent.get_latest_price(symbol)
-        return {"symbol": symbol, "price": price, "timestamp": datetime.now()}
+        timestamp = datetime.now()
+        response_data = {
+            "symbol": symbol,
+            "price": price,
+            "timestamp": timestamp.isoformat(),
+        }
+        return clean_response(response_data)
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch stock quote: {str(e)}"
@@ -121,19 +141,31 @@ async def get_multiple_stocks(
 
             if stock_data and hasattr(stock_data, "data") and not stock_data.data.empty:
                 # Reset index to include timestamp in the records
-                df_dict = stock_data.data.reset_index().to_dict(orient="records")
+                df = stock_data.data.reset_index()
 
-                results[symbol] = {"timeframe": timeframe, "data": df_dict}
+                # Convert to records with proper date formatting
+                records = df.to_dict(orient="records")
+
+                # Format date/time objects
+                for record in records:
+                    for key, value in record.items():
+                        if isinstance(value, (pd.Timestamp, datetime)):
+                            record[key] = value.isoformat()
+
+                results[symbol] = {"timeframe": timeframe, "data": records}
             else:
                 results[symbol] = {"timeframe": timeframe, "data": []}
 
-        return {
+        response_data = {
             "symbols": symbol_list,
             "timeframe": timeframe,
-            "start_date": start_date,
-            "end_date": end_date,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
             "results": results,
         }
+
+        # Clean the response data to ensure it's serializable
+        return clean_response(response_data)
 
     except Exception as e:
         raise HTTPException(

@@ -8,6 +8,7 @@ from app.agents.data_agent import DataAgent
 from app.agents.analysis_agent import AnalysisAgent
 from app.agents.strategy_agent import StrategyAgent
 from app.models.stock import TradingRecommendation
+from app.utils.serialization import clean_response  # Add this import
 
 router = APIRouter(prefix="/strategy", tags=["Strategy"])
 
@@ -67,7 +68,8 @@ async def get_trading_recommendation(
             investment_horizon=investment_horizon,
         )
 
-        return recommendation.dict()
+        # Apply clean_response to ensure serializable data
+        return clean_response(recommendation.dict())
 
     except HTTPException:
         raise
@@ -137,11 +139,14 @@ async def get_portfolio_recommendations(
         # Convert recommendations to dictionaries for response
         recommendation_dicts = [rec.dict() for rec in recommendations]
 
-        return {
+        response_data = {
             "portfolio": portfolio,
             "recommendations": recommendation_dicts,
             "timestamp": datetime.now(),
         }
+
+        # Clean the response data
+        return clean_response(response_data)
 
     except HTTPException:
         raise
@@ -221,11 +226,14 @@ async def get_investment_opportunities(
         # Convert opportunities to dictionaries for response
         opportunity_dicts = [opp.dict() for opp in opportunities]
 
-        return {
+        response_data = {
             "opportunities": opportunity_dicts,
             "count": len(opportunity_dicts),
             "timestamp": datetime.now(),
         }
+
+        # Clean the response data
+        return clean_response(response_data)
 
     except Exception as e:
         raise HTTPException(

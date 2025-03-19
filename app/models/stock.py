@@ -19,16 +19,16 @@ class StockData(BaseModel):
 
 
 class NewsItem(BaseModel):
-    """Representation of a news article."""
+    """News article data."""
 
-    id: str
-    headline: str
-    summary: Optional[str] = None
-    url: str
-    source: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    symbols: List[str] = []
+    # Ensure these fields exist to match what's used in analysis_agent.py
+    headline: str = ""
+    summary: str = ""
+    url: Optional[str] = None
+    source: Optional[str] = None
+    datetime: Optional[datetime] = None
+
+    # Any additional fields can be included here
 
 
 class SentimentAnalysis(BaseModel):

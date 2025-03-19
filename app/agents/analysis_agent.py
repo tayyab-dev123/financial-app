@@ -24,47 +24,83 @@ class AnalysisAgent:
         Returns:
             StockAnalysis object with trend predictions and indicators
         """
-        df = stock_data.data
+        try:
+            df = stock_data.data
 
-        # Calculate technical indicators
-        df = self._calculate_technical_indicators(df)
+            if df.empty:
+                # Handle empty dataframe case
+                return StockAnalysis(
+                    symbol=stock_data.symbol,
+                    current_price=0.0,
+                    prediction="neutral",
+                    confidence=0.0,
+                    timeframe=stock_data.timeframe,
+                    support_levels=[0.0],
+                    resistance_levels=[0.0],
+                    indicators={
+                        "rsi": None,
+                        "macd": None,
+                        "macd_signal": None,
+                        "ma_50": None,
+                        "ma_200": None,
+                    },
+                    last_updated=datetime.now(),
+                )
 
-        # Prepare features for prediction
-        features = self._prepare_prediction_features(df)
+            # Calculate technical indicators
+            df = self._calculate_technical_indicators(df)
 
-        # Make predictions using the trend prediction model
-        predictions = await self.hf_service.predict_trend(features)
+            # Prepare features for prediction
+            features = self._prepare_prediction_features(df)
 
-        # Calculate price targets
-        current_price = df["close"].iloc[-1]
-        support, resistance = self._calculate_support_resistance(df)
+            # Make predictions using the trend prediction model
+            predictions = await self.hf_service.predict_trend(features)
 
-        return StockAnalysis(
-            symbol=stock_data.symbol,
-            current_price=current_price,
-            prediction=predictions["prediction"],
-            confidence=predictions["confidence"],
-            timeframe=stock_data.timeframe,
-            support_levels=[support],
-            resistance_levels=[resistance],
-            indicators={
-                "rsi": df["rsi"].iloc[-1] if "rsi" in df else None,
-                "macd": df["macd"].iloc[-1] if "macd" in df else None,
-                "macd_signal": (
-                    df["macd_signal"].iloc[-1] if "macd_signal" in df else None
-                ),
-                "ma_50": df["ma_50"].iloc[-1] if "ma_50" in df else None,
-                "ma_200": df["ma_200"].iloc[-1] if "ma_200" in df else None,
-            },
-            last_updated=datetime.now(),
-        )
+            # Calculate price targets
+            current_price = df["close"].iloc[-1]
+            support, resistance = self._calculate_support_resistance(df)
+
+            return StockAnalysis(
+                symbol=stock_data.symbol,
+                current_price=current_price,
+                prediction=predictions["prediction"],
+                confidence=predictions["confidence"],
+                timeframe=stock_data.timeframe,
+                support_levels=[support],
+                resistance_levels=[resistance],
+                indicators={
+                    "rsi": df["rsi"].iloc[-1] if "rsi" in df else None,
+                    "macd": df["macd"].iloc[-1] if "macd" in df else None,
+                    "macd_signal": (
+                        df["macd_signal"].iloc[-1] if "macd_signal" in df else None
+                    ),
+                    "ma_50": df["ma_50"].iloc[-1] if "ma_50" in df else None,
+                    "ma_200": df["ma_200"].iloc[-1] if "ma_200" in df else None,
+                },
+                last_updated=datetime.now(),
+            )
+        except Exception as e:
+            print(f"Error in analyze_stock_trend: {str(e)}")
+            # Return a default analysis with error information
+            return StockAnalysis(
+                symbol=stock_data.symbol,
+                current_price=0.0,
+                prediction="neutral",
+                confidence=0.0,
+                timeframe=stock_data.timeframe,
+                support_levels=[0.0],
+                resistance_levels=[0.0],
+                indicators={},
+                last_updated=datetime.now(),
+                error=str(e),
+            )
 
     async def analyze_news_sentiment(self, news_items: List[Dict]) -> SentimentAnalysis:
         """
         Analyze sentiment of news articles related to a stock.
 
         Args:
-            news_items: List of news articles
+            news_items: List of news articles (can be dictionaries or NewsItem objects)
 
         Returns:
             SentimentAnalysis object with sentiment scores and summary
@@ -77,12 +113,22 @@ class AnalysisAgent:
                 summary="No news articles available for analysis.",
             )
 
-        # Extract text content from news items
-        texts = [
-            item.get("headline", "") + ". " + item.get("summary", "")
-            for item in news_items
-            if item.get("headline")
-        ]
+        # Extract text content from news items, handling both dict and NewsItem objects
+        texts = []
+        for item in news_items:
+            # Handle both dictionary and NewsItem objects
+            if hasattr(item, "dict") and callable(getattr(item, "dict")):
+                # It's a Pydantic model (NewsItem)
+                item_dict = item.dict()
+                headline = item_dict.get("headline", "")
+                summary = item_dict.get("summary", "")
+            else:
+                # It's already a dictionary
+                headline = item.get("headline", "")
+                summary = item.get("summary", "")
+
+            if headline:
+                texts.append(f"{headline}. {summary}")
 
         # Get sentiment analysis from HuggingFace model
         sentiments = await self.hf_service.analyze_sentiment(texts)
@@ -123,52 +169,103 @@ class AnalysisAgent:
 
     def _calculate_technical_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         """Calculate technical indicators for stock analysis."""
-        # Make a copy to avoid modifying the original
-        df = df.copy()
+        try:
+            # Make a copy to avoid modifying the original
+            df = df.copy()
 
-        # Calculate moving averages
-        df["ma_50"] = df["close"].rolling(window=50).mean()
-        df["ma_200"] = df["close"].rolling(window=200).mean()
+            # Make sure we have numeric data
+            for col in ["open", "high", "low", "close", "volume"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        # Calculate RSI
-        delta = df["close"].diff()
-        gain = delta.clip(lower=0)
-        loss = -delta.clip(upper=0)
-        avg_gain = gain.rolling(window=14).mean()
-        avg_loss = loss.rolling(window=14).mean()
-        rs = avg_gain / avg_loss.replace(0, 1e-10)  # Avoid division by zero
-        df["rsi"] = 100 - (100 / (1 + rs))
+            # Ensure enough data for calculations
+            if len(df) < 50:
+                # Return dataframe with NaN indicators if not enough data
+                df["ma_50"] = np.nan
+                df["ma_200"] = np.nan
+                df["rsi"] = np.nan
+                df["macd"] = np.nan
+                df["macd_signal"] = np.nan
+                return df
 
-        # Calculate MACD
-        ema_12 = df["close"].ewm(span=12, adjust=False).mean()
-        ema_26 = df["close"].ewm(span=26, adjust=False).mean()
-        df["macd"] = ema_12 - ema_26
-        df["macd_signal"] = df["macd"].ewm(span=9, adjust=False).mean()
+            # Calculate moving averages
+            df["ma_50"] = df["close"].rolling(window=min(50, len(df))).mean()
+            df["ma_200"] = df["close"].rolling(window=min(200, len(df))).mean()
 
-        return df
+            # Calculate RSI
+            delta = df["close"].diff()
+            gain = delta.clip(lower=0)
+            loss = -delta.clip(upper=0)
+            avg_gain = gain.rolling(window=min(14, len(df))).mean()
+            avg_loss = loss.rolling(window=min(14, len(df))).mean()
+            rs = avg_gain / avg_loss.replace(0, 1e-10)  # Avoid division by zero
+            df["rsi"] = 100 - (100 / (1 + rs))
+
+            # Calculate MACD using vectorized operations
+            ema_12 = df["close"].ewm(span=min(12, len(df)), adjust=False).mean()
+            ema_26 = df["close"].ewm(span=min(26, len(df)), adjust=False).mean()
+            df["macd"] = ema_12 - ema_26
+            df["macd_signal"] = (
+                df["macd"].ewm(span=min(9, len(df)), adjust=False).mean()
+            )
+
+            return df
+        except Exception as e:
+            print(f"Error calculating technical indicators: {str(e)}")
+            # Return the original dataframe if there's an error
+            return df
 
     def _prepare_prediction_features(self, df: pd.DataFrame) -> Dict[str, Any]:
         """Prepare features for the prediction model."""
-        # Get the last few days of data with indicators
-        last_rows = df.tail(10).copy()
+        try:
+            # Get the last few days of data with indicators
+            rows_to_use = min(10, len(df))
+            last_rows = df.tail(rows_to_use).copy()
 
-        # Fill any missing values
-        last_rows = last_rows.fillna(method="ffill").fillna(method="bfill")
+            # Fill any missing values - using recommended methods instead of deprecated ones
+            last_rows = last_rows.ffill().bfill()
 
-        # Extract features
-        features = {
-            "prices": last_rows["close"].values.tolist(),
-            "volumes": last_rows["volume"].values.tolist(),
-            "rsi": last_rows["rsi"].values.tolist() if "rsi" in last_rows else [],
-            "macd": last_rows["macd"].values.tolist() if "macd" in last_rows else [],
-            "macd_signal": (
-                last_rows["macd_signal"].values.tolist()
-                if "macd_signal" in last_rows
-                else []
-            ),
-        }
+            # Safely extract features
+            features = {
+                "prices": (
+                    last_rows["close"].astype(float).tolist()
+                    if "close" in last_rows
+                    else []
+                ),
+                "volumes": (
+                    last_rows["volume"].astype(float).tolist()
+                    if "volume" in last_rows
+                    else []
+                ),
+                "rsi": (
+                    last_rows["rsi"].astype(float).tolist()
+                    if "rsi" in last_rows and not last_rows["rsi"].isna().all()
+                    else []
+                ),
+                "macd": (
+                    last_rows["macd"].astype(float).tolist()
+                    if "macd" in last_rows and not last_rows["macd"].isna().all()
+                    else []
+                ),
+                "macd_signal": (
+                    last_rows["macd_signal"].astype(float).tolist()
+                    if "macd_signal" in last_rows
+                    and not last_rows["macd_signal"].isna().all()
+                    else []
+                ),
+            }
 
-        return features
+            return features
+        except Exception as e:
+            print(f"Error preparing prediction features: {str(e)}")
+            # Return minimal features if there's an error
+            return {
+                "prices": [],
+                "volumes": [],
+                "rsi": [],
+                "macd": [],
+                "macd_signal": [],
+            }
 
     def _calculate_support_resistance(self, df: pd.DataFrame) -> Tuple[float, float]:
         """Calculate basic support and resistance levels."""
