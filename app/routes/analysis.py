@@ -26,8 +26,12 @@ async def get_technical_analysis(
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
+        # No need to format dates here as the data_agent will handle it
         stock_data = await data_agent.get_stock_data(
-            symbol=symbol, timeframe=timeframe, start_date=start_date, end_date=end_date
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         if not stock_data or not hasattr(stock_data, "data") or stock_data.data.empty:
@@ -98,8 +102,12 @@ async def get_complete_analysis(
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
 
+        # No need to format dates here as the data_agent will handle it
         stock_data = await data_agent.get_stock_data(
-            symbol=symbol, timeframe=timeframe, start_date=start_date, end_date=end_date
+            symbol=symbol,
+            timeframe=timeframe,
+            start_date=start_date,
+            end_date=end_date,
         )
 
         if not stock_data or not hasattr(stock_data, "data") or stock_data.data.empty:

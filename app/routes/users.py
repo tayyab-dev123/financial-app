@@ -7,7 +7,13 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from app.core.dependencies import get_user_agent
 from app.agents.user_agent import UserAgent
 from app.services.database import get_user_service
-from app.models.user import User, UserPreferences, UserPortfolio, UserAlert
+from app.models.user import (
+    User,
+    UserPreferences,
+    UserPortfolio,
+    UserAlert,
+    UserRegistration,
+)
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -42,19 +48,19 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @router.post("/register")
-async def register_user(
-    username: str = Body(...), email: str = Body(...), password: str = Body(...)
-):
+async def register_user(user_data: UserRegistration):
     """Register a new user."""
     user_service = get_user_service()
 
     # Check if user already exists
-    existing_user = await user_service.get_user_by_username(username)
+    existing_user = await user_service.get_user_by_username(user_data.username)
     if existing_user:
         raise HTTPException(status_code=400, detail="Username already registered")
 
     # Create new user
-    user = await user_service.create_user(username, email, password)
+    user = await user_service.create_user(
+        user_data.username, user_data.email, user_data.password
+    )
     return {"message": "User registered successfully", "user_id": user.id}
 
 

@@ -30,6 +30,14 @@ class User(BaseModel):
     preferences: UserPreferences = Field(default_factory=UserPreferences)
 
 
+class UserRegistration(BaseModel):
+    """Schema for user registration data."""
+
+    username: str
+    email: EmailStr
+    password: str
+
+
 class UserPortfolio(BaseModel):
     """User's investment portfolio."""
 

@@ -1,6 +1,6 @@
 # app/database/mongodb.py
 from motor.motor_asyncio import AsyncIOMotorClient
-from app.core.config import config
+from app.core.config import settings  # Changed from config to settings
 
 
 class MongoDB:
@@ -10,9 +10,9 @@ class MongoDB:
 
     async def connect(self):
         """Initialize MongoDB Connection"""
-        self.client = AsyncIOMotorClient(config.MONGO_URI)
-        self.db = self.client[config.MONGO_DB_NAME]  # Use the configured DB name
-        print(f"Connected to MongoDB at {config.MONGO_URI}")
+        self.client = AsyncIOMotorClient(settings.MONGO_URI)
+        self.db = self.client[settings.MONGO_DB_NAME]  # Use the configured DB name
+        print(f"Connected to MongoDB at {settings.MONGO_URI}")
 
     async def close(self):
         """Close MongoDB Connection"""
